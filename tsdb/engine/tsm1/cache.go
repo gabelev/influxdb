@@ -8,22 +8,25 @@ import (
 	"sync"
 )
 
+// ErrCacheMemoryExceeded is a cache error.
 var ErrCacheMemoryExceeded = fmt.Errorf("cache maximum memory size exceeded")
+
+// ErrCacheInvalidCheckpoint is a checkpoint error.
 var ErrCacheInvalidCheckpoint = fmt.Errorf("invalid checkpoint")
 
-// entry is a set of values and some metadata.
-type entry struct {
+// Entry is a set of values and some metadata.
+type Entry struct {
 	values   Values // All stored values.
 	needSort bool   // true if the values are out of order and require deduping.
 }
 
 // newEntry returns a new instance of entry.
-func newEntry() *entry {
-	return &entry{}
+func newEntry() *Entry {
+	return &Entry{}
 }
 
 // add adds the given values to the entry.
-func (e *entry) add(values []Value) {
+func (e *Entry) add(values []Value) {
 	// if there are existing values make sure they're all less than the first of
 	// the new values being added
 	if len(e.values) == 0 {
@@ -54,7 +57,7 @@ func (e *entry) add(values []Value) {
 
 // deduplicate sorts and orders the entry's values. If values are already deduped and
 // and sorted, the function does no work and simply returns.
-func (e *entry) deduplicate() {
+func (e *Entry) deduplicate() {
 	if !e.needSort || len(e.values) == 0 {
 		return
 	}
@@ -65,7 +68,7 @@ func (e *entry) deduplicate() {
 // Cache maintains an in-memory store of Values for a set of keys.
 type Cache struct {
 	mu      sync.RWMutex
-	store   map[string]*entry
+	store   map[string]*Entry
 	size    uint64
 	maxSize uint64
 
@@ -80,7 +83,7 @@ type Cache struct {
 func NewCache(maxSize uint64) *Cache {
 	return &Cache{
 		maxSize: maxSize,
-		store:   make(map[string]*entry),
+		store:   make(map[string]*Entry),
 	}
 }
 
@@ -139,7 +142,7 @@ func (c *Cache) Snapshot() *Cache {
 	snapshot.store = c.store
 	snapshot.size = c.size
 
-	c.store = make(map[string]*entry)
+	c.store = make(map[string]*Entry)
 	c.size = 0
 
 	c.snapshots = append(c.snapshots, snapshot)
@@ -186,7 +189,7 @@ func (c *Cache) MaxSize() uint64 {
 // Keys returns a sorted slice of all keys under management by the cache.
 func (c *Cache) Keys() []string {
 	var a []string
-	for k, _ := range c.store {
+	for k := range c.store {
 		a = append(a, k)
 	}
 	sort.Strings(a)
@@ -244,7 +247,7 @@ func (c *Cache) merged(key string) Values {
 
 	// Build the sequence of entries that will be returned, in the correct order.
 	// Calculate the required size of the destination buffer.
-	var entries []*entry
+	var entries []*Entry
 	sz := 0
 	for _, s := range c.snapshots {
 		e := s.store[key]
@@ -285,14 +288,16 @@ func (c *Cache) merged(key string) Values {
 
 // Store returns the underlying cache store. This is not goroutine safe!
 // Protect access by using the Lock and Unlock functions on Cache.
-func (c *Cache) Store() map[string]*entry {
+func (c *Cache) Store() map[string]*Entry {
 	return c.store
 }
 
+// Lock performs a mutex lock on the Cache.
 func (c *Cache) Lock() {
 	c.mu.Lock()
 }
 
+// Unlock performs a mutex unlock on the Cache.
 func (c *Cache) Unlock() {
 	c.mu.Unlock()
 }
@@ -358,7 +363,7 @@ func (cl *CacheLoader) Load(cache *Cache) error {
 			defer r.Close()
 
 			for r.Next() {
-				entry, err := r.Read()
+				Entry, err := r.Read()
 				if err != nil {
 					n := r.Count()
 					cl.Logger.Printf("file %s corrupt at position %d, truncating", f.Name(), n)
@@ -368,7 +373,7 @@ func (cl *CacheLoader) Load(cache *Cache) error {
 					break
 				}
 
-				switch t := entry.(type) {
+				switch t := Entry.(type) {
 				case *WriteWALEntry:
 					if err := cache.WriteMulti(t.Values); err != nil {
 						return err
