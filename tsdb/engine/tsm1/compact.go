@@ -26,17 +26,22 @@ import (
 const maxTSMFileSize = uint32(2048 * 1024 * 1024) // 2GB
 
 const (
+	// CompactionTempExtension initializes the compaction file name extension constant.
 	CompactionTempExtension = "tmp"
-	TSMFileExtension        = "tsm"
+	// TSMFileExtension initializes the TSM file name extension constant.
+	TSMFileExtension = "tsm"
 )
 
 var errMaxFileExceeded = fmt.Errorf("max file exceeded")
 
 var (
+	// MaxTime initializes the maximum time boundry variable.
 	MaxTime = time.Unix(0, math.MaxInt64)
+	// MinTime initializes the minimum time boundry variable.
 	MinTime = time.Unix(0, 0)
 )
 
+// CompactionGroup initializes a slice of type string.
 type CompactionGroup []string
 
 // CompactionPlanner determines what TSM files and WAL segments to include in a
@@ -476,12 +481,12 @@ func (c *Compactor) compact(fast bool, tsmFiles []string) ([]string, error) {
 	return c.writeNewFiles(maxGeneration, maxSequence, tsm)
 }
 
-// Compact will write multiple smaller TSM files into 1 or more larger files
+// CompactFull will write multiple smaller TSM files into 1 or more larger files
 func (c *Compactor) CompactFull(tsmFiles []string) ([]string, error) {
 	return c.compact(false, tsmFiles)
 }
 
-// Compact will write multiple smaller TSM files into 1 or more larger files
+// CompactFast will write multiple smaller TSM files into 1 or more larger files
 func (c *Compactor) CompactFast(tsmFiles []string) ([]string, error) {
 	return c.compact(true, tsmFiles)
 }
@@ -658,8 +663,10 @@ func (a blocks) Less(i, j int) bool {
 	return a[i].key < a[j].key
 }
 
+// Swap reorders elements in a block.
 func (a blocks) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
+// NewTSMKeyIterator iterates through the keys in a block returning type KeyIterator.
 func NewTSMKeyIterator(size int, fast bool, readers ...*TSMReader) (KeyIterator, error) {
 	var iter []*BlockIterator
 	for _, r := range readers {
@@ -792,49 +799,49 @@ func (k *tsmKeyIterator) combine(dedup bool) blocks {
 		// Since we combined multiple blocks, we could have more values than we should put into
 		// a single block.  We need to chunk them up into groups and re-encode them.
 		return k.chunk(nil, decoded)
-	} else {
-		var chunked blocks
-		var i int
+	}
+	var chunked blocks
+	var i int
 
+	for i < len(k.blocks) {
+		// If we this block is already full, just add it as is
+		if BlockCount(k.blocks[i].b) >= k.size {
+			chunked = append(chunked, k.blocks[i])
+		} else {
+			break
+		}
+		i++
+	}
+
+	if k.fast {
 		for i < len(k.blocks) {
-			// If we this block is already full, just add it as is
-			if BlockCount(k.blocks[i].b) >= k.size {
-				chunked = append(chunked, k.blocks[i])
-			} else {
-				break
-			}
-			i++
-		}
-
-		if k.fast {
-			for i < len(k.blocks) {
-				chunked = append(chunked, k.blocks[i])
-				i++
-			}
-		}
-
-		// If we only have 1 blocks left, just append it as is and avoid decoding/recoding
-		if i == len(k.blocks)-1 {
 			chunked = append(chunked, k.blocks[i])
 			i++
 		}
+	}
 
-		// The remaining blocks can be combined and we know that they do not overlap and
-		// so we can just append each, sort and re-encode.
-		for i < len(k.blocks) {
-			v, err := DecodeBlock(k.blocks[i].b, nil)
-			if err != nil {
-				k.err = err
-				return nil
-			}
+	// If we only have 1 blocks left, just append it as is and avoid decoding/recoding
+	if i == len(k.blocks)-1 {
+		chunked = append(chunked, k.blocks[i])
+		i++
+	}
 
-			decoded = append(decoded, v...)
-			i++
+	// The remaining blocks can be combined and we know that they do not overlap and
+	// so we can just append each, sort and re-encode.
+	for i < len(k.blocks) {
+		v, err := DecodeBlock(k.blocks[i].b, nil)
+		if err != nil {
+			k.err = err
+			return nil
 		}
 
-		sort.Sort(Values(decoded))
-		return k.chunk(chunked, decoded)
+		decoded = append(decoded, v...)
+		i++
 	}
+
+	sort.Sort(Values(decoded))
+	return k.chunk(chunked, decoded)
+
 }
 
 func (k *tsmKeyIterator) chunk(dst blocks, values []Value) blocks {
@@ -905,6 +912,7 @@ type cacheKeyIterator struct {
 	err              error
 }
 
+// NewCacheKeyIterator iterates through cache returning type KeyIterator.
 func NewCacheKeyIterator(cache *Cache, size int) KeyIterator {
 	keys := cache.Keys()
 

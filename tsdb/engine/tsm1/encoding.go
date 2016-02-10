@@ -28,6 +28,7 @@ const (
 	encodedBlockHeaderSize = 1
 )
 
+// Value type contains all the Value elements.
 type Value interface {
 	Time() time.Time
 	UnixNano() int64
@@ -36,6 +37,8 @@ type Value interface {
 	String() string
 }
 
+// NewValue initialized a Value based on the value type (int64, float64,
+// bool, string).
 func NewValue(t time.Time, value interface{}) Value {
 	un := t.UnixNano()
 	switch v := value.(type) {
@@ -51,28 +54,41 @@ func NewValue(t time.Time, value interface{}) Value {
 	return &EmptyValue{}
 }
 
+// EmptyValue designates a container for Empty Values.
 type EmptyValue struct {
 }
 
-func (e *EmptyValue) UnixNano() int64    { return tsdb.EOF }
-func (e *EmptyValue) Time() time.Time    { return time.Unix(0, tsdb.EOF) }
-func (e *EmptyValue) Value() interface{} { return nil }
-func (e *EmptyValue) Size() int          { return 0 }
-func (e *EmptyValue) String() string     { return "" }
+// UnixNano retuns a EmptyValue EOF.
+func (e *EmptyValue) UnixNano() int64 { return tsdb.EOF }
 
-// Values represented a time ascending sorted collection of Value types.
-// the underlying type should be the same across all values, but the interface
+// Time method calculates the EOF time for the EmptyValue.
+func (e *EmptyValue) Time() time.Time { return time.Unix(0, tsdb.EOF) }
+
+// Value initialiazes a nil value.
+func (e *EmptyValue) Value() interface{} { return nil }
+
+// Size returns EmptyValue size of 0.
+func (e *EmptyValue) Size() int { return 0 }
+
+// String returns an EmptyValue empty string.
+func (e *EmptyValue) String() string { return "" }
+
+// Values represents a time ascending sorted collection of Value types.
+// The underlying type should be the same across all values, but the interface
 // makes the code cleaner.
 type Values []Value
 
+// MinTime returns the time of the first item in the Values collection.
 func (a Values) MinTime() int64 {
 	return a[0].Time().UnixNano()
 }
 
+// MaxTime returns the time of the last item in the Values collection.
 func (a Values) MaxTime() int64 {
 	return a[len(a)-1].Time().UnixNano()
 }
 
+// Size returns the sum total size of the Values collection.
 func (a Values) Size() int {
 	sz := 0
 	for _, v := range a {
@@ -134,6 +150,7 @@ func BlockType(block []byte) (byte, error) {
 	}
 }
 
+// BlockCount returns the number of timestamps in a Block.
 func BlockCount(block []byte) int {
 	if len(block) <= encodedBlockHeaderSize {
 		panic(fmt.Sprintf("count of short block: got %v, exp %v", len(block), encodedBlockHeaderSize))
@@ -222,23 +239,28 @@ func (a Values) Len() int           { return len(a) }
 func (a Values) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a Values) Less(i, j int) bool { return a[i].Time().UnixNano() < a[j].Time().UnixNano() }
 
+// FloatValue is a container for both time and value.
 type FloatValue struct {
 	unixnano int64
 	value    float64
 }
 
+// Time calculates the unixnano time for a FloatValue.
 func (f *FloatValue) Time() time.Time {
 	return time.Unix(0, f.unixnano)
 }
 
+// UnixNano returns the unixnano time representation for a FloatValue.
 func (f *FloatValue) UnixNano() int64 {
 	return f.unixnano
 }
 
+// Value returns a FloatValue value.
 func (f *FloatValue) Value() interface{} {
 	return f.value
 }
 
+// Size returns the constant size=16 of a FloatValue
 func (f *FloatValue) Size() int {
 	return 16
 }
@@ -286,6 +308,7 @@ func encodeFloatBlock(buf []byte, values []Value) ([]byte, error) {
 	return block, nil
 }
 
+// DecodeFloatBlock takes a byte array and will decode into FloatValues.
 func DecodeFloatBlock(block []byte, a []FloatValue) ([]FloatValue, error) {
 	// Block type is the next block, make sure we actually have a float block
 	blockType := block[0]
@@ -354,27 +377,32 @@ func (a FloatValues) Len() int           { return len(a) }
 func (a FloatValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a FloatValues) Less(i, j int) bool { return a[i].Time().UnixNano() < a[j].Time().UnixNano() }
 
+// BooleanValue contains a unix time and boolean value.
 type BooleanValue struct {
 	unixnano int64
 	value    bool
 }
 
+// Time calculates the unix nano time for a BooleanValue.
 func (b *BooleanValue) Time() time.Time { return time.Unix(0, b.unixnano) }
 
+// Size returns the constant size=9 of a BooleanValue
 func (b *BooleanValue) Size() int {
 	return 9
 }
 
+// UnixNano retuns the unix nano time of a BooleanValue.
 func (b *BooleanValue) UnixNano() int64 {
 	return b.unixnano
 }
 
+// Value returns the value of a BooleanValue.
 func (b *BooleanValue) Value() interface{} {
 	return b.value
 }
 
-func (f *BooleanValue) String() string {
-	return fmt.Sprintf("%v %v", f.Time(), f.Value())
+func (b *BooleanValue) String() string {
+	return fmt.Sprintf("%v %v", b.Time(), b.Value())
 }
 
 func encodeBooleanBlock(buf []byte, values []Value) ([]byte, error) {
@@ -414,6 +442,7 @@ func encodeBooleanBlock(buf []byte, values []Value) ([]byte, error) {
 	return block, nil
 }
 
+// DecodeBooleanBlock takes a byte array and will decode into BooleanValues.
 func DecodeBooleanBlock(block []byte, a []BooleanValue) ([]BooleanValue, error) {
 	// Block type is the next block, make sure we actually have a float block
 	blockType := block[0]
@@ -479,29 +508,34 @@ func (a BooleanValues) Len() int           { return len(a) }
 func (a BooleanValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a BooleanValues) Less(i, j int) bool { return a[i].Time().UnixNano() < a[j].Time().UnixNano() }
 
+// IntegerValue contains a unix nano time and a value.
 type IntegerValue struct {
 	unixnano int64
 	value    int64
 }
 
+// Time calculates the unix nano time of an IntegerValue.
 func (v *IntegerValue) Time() time.Time {
 	return time.Unix(0, v.unixnano)
 }
 
+// Value returns the value of an IntegerValue.
 func (v *IntegerValue) Value() interface{} {
 	return v.value
 }
 
+// UnixNano returns the unix nano time of an IntegerValue.
 func (v *IntegerValue) UnixNano() int64 {
 	return v.unixnano
 }
 
+// Size returns the constant size=16 of an IntegerValue.
 func (v *IntegerValue) Size() int {
 	return 16
 }
 
-func (f *IntegerValue) String() string {
-	return fmt.Sprintf("%v %v", f.Time(), f.Value())
+func (v *IntegerValue) String() string {
+	return fmt.Sprintf("%v %v", v.Time(), v.Value())
 }
 
 func encodeIntegerBlock(buf []byte, values []Value) ([]byte, error) {
@@ -528,6 +562,7 @@ func encodeIntegerBlock(buf []byte, values []Value) ([]byte, error) {
 	return append(block, packBlock(tb, vb)...), nil
 }
 
+// DecodeIntegerBlock takes a byte array and will decode into IntegerValues.
 func DecodeIntegerBlock(block []byte, a []IntegerValue) ([]IntegerValue, error) {
 	blockType := block[0]
 	if blockType != BlockInteger {
@@ -594,29 +629,34 @@ func (a IntegerValues) Len() int           { return len(a) }
 func (a IntegerValues) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a IntegerValues) Less(i, j int) bool { return a[i].Time().UnixNano() < a[j].Time().UnixNano() }
 
+// StringValue contains a unix nano time and value.
 type StringValue struct {
 	unixnano int64
 	value    string
 }
 
+// Time calculates the unix nano time of a StringValue
 func (v *StringValue) Time() time.Time {
 	return time.Unix(0, v.unixnano)
 }
 
+// Value returns the value of a StringValue
 func (v *StringValue) Value() interface{} {
 	return v.value
 }
 
+// UnixNano returns the unix nano time for a StringValue.
 func (v *StringValue) UnixNano() int64 {
 	return v.unixnano
 }
 
+// Size returns the size of StringValue.
 func (v *StringValue) Size() int {
 	return 8 + len(v.value)
 }
 
-func (f *StringValue) String() string {
-	return fmt.Sprintf("%v %v", f.Time(), f.Value())
+func (v *StringValue) String() string {
+	return fmt.Sprintf("%v %v", v.Time(), v.Value())
 }
 
 func encodeStringBlock(buf []byte, values []Value) ([]byte, error) {
@@ -643,6 +683,7 @@ func encodeStringBlock(buf []byte, values []Value) ([]byte, error) {
 	return append(block, packBlock(tb, vb)...), nil
 }
 
+// DecodeStringBlock takes a byte array and will decode into StringValue.
 func DecodeStringBlock(block []byte, a []StringValue) ([]StringValue, error) {
 	blockType := block[0]
 	if blockType != BlockString {
