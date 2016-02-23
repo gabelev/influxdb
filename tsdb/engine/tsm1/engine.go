@@ -375,12 +375,12 @@ func (e *Engine) DeleteSeries(seriesKeys []string) error {
 	e.FileStore.Delete(deleteKeys)
 
 	// find the keys in the cache and remove them
-	walKeys := make([]string, 0)
+	var walKeys []string
 	e.Cache.Lock()
 	defer e.Cache.Unlock()
 
 	s := e.Cache.Store()
-	for k, _ := range s {
+	for k := range s {
 		seriesKey, _ := seriesAndFieldFromCompositeKey(k)
 		if _, ok := keyMap[seriesKey]; ok {
 			walKeys = append(walKeys, k)
@@ -404,6 +404,7 @@ func (e *Engine) SeriesCount() (n int, err error) {
 	return 0, nil
 }
 
+// WriteTo will write to an io.Writer.
 func (e *Engine) WriteTo(w io.Writer) (n int64, err error) { panic("not implemented") }
 
 // WriteSnapshot will snapshot the cache and write a new TSM file with its contents, releasing the snapshot when done.
@@ -646,12 +647,14 @@ func (e *Engine) cleanup() error {
 	return nil
 }
 
+// KeyCursor takes a key and returns a FileStoreCursor.
 func (e *Engine) KeyCursor(key string, t time.Time, ascending bool) *KeyCursor {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.FileStore.KeyCursor(key, t, ascending)
 }
 
+// CreateIterator takes iterator options and returns a new Iterator.
 func (e *Engine) CreateIterator(opt influxql.IteratorOptions) (influxql.Iterator, error) {
 	if call, ok := opt.Expr.(*influxql.Call); ok {
 		refOpt := opt
@@ -670,6 +673,7 @@ func (e *Engine) CreateIterator(opt influxql.IteratorOptions) (influxql.Iterator
 	return influxql.NewSortedMergeIterator(itrs, opt), nil
 }
 
+// SeriesKeys takes iterator options and returns a new SeriesList.
 func (e *Engine) SeriesKeys(opt influxql.IteratorOptions) (influxql.SeriesList, error) {
 	seriesList := influxql.SeriesList{}
 	mms := tsdb.Measurements(e.index.MeasurementsByName(influxql.Sources(opt.Sources).Names()))
