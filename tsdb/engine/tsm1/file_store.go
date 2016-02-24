@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// TSMFile contains all the methods and variables for the InfluxDB Time Series Merge Tree file.
 type TSMFile interface {
 	// Path returns the underlying file path for the TSMFile.  If the file
 	// has not be written or loaded from disk, the zero value is returne.
@@ -79,6 +80,8 @@ type TSMFile interface {
 	BlockIterator() *BlockIterator
 }
 
+// FileStore cotains aggregate methods and variables for the file store
+// that houses the TSMFiles.
 type FileStore struct {
 	mu           sync.RWMutex
 	lastModified time.Time
@@ -92,6 +95,7 @@ type FileStore struct {
 	traceLogging bool
 }
 
+// FileStat contains key metrics for a TSMFile.
 type FileStat struct {
 	Path             string
 	HasTombstone     bool
